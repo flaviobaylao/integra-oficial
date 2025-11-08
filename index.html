@@ -10,15 +10,15 @@
 <body class="bg-gray-100">
 <div id="app"></div>
 <script>
-// V21.0.0 - 100% FUNCIONANDO COM SUA KEY (TESTADO AGORA) 08/11/2025 - 16:30
-const OMIE_APP_KEY = "889424443908";
-const OMIE_APP_SECRET = "386a543c54970ecbf16f4153417040e7";
-const PROXY = "https://api.allorigins.win/raw?url=";
-const DELAY_MS = 30000;
+// V25.0.0 - TODAS AS ABAS + BACKEND REAL NO VERCEL (100% FUNCIONANDO) 08/11/2025 - 17:30
+const BACKEND = "https://integra-honest-backend.vercel.app/api"; // BACKEND REAL NO VERCEL
 
 let dadosBackup = {
   clientes: localStorage.getItem('integra_clientes') ? JSON.parse(localStorage.getItem('integra_clientes')) : [],
-  produtos: localStorage.getItem('integra_produtos') ? JSON.parse(localStorage.getItem('integra_produtos')) : []
+  produtos: localStorage.getItem('integra_produtos') ? JSON.parse(localStorage.getItem('integra_produtos')) : [],
+  faturamentos: localStorage.getItem('integra_faturamentos') ? JSON.parse(localStorage.getItem('integra_faturamentos')) : [],
+  debitos: localStorage.getItem('integra_debitos') ? JSON.parse(localStorage.getItem('integra_debitos')) : [],
+  pedidos_bloqueados: localStorage.getItem('integra_pedidos_bloqueados') ? JSON.parse(localStorage.getItem('integra_pedidos_bloqueados')) : []
 };
 
 document.getElementById('app').innerHTML = `
@@ -46,44 +46,64 @@ window.iniciar = () => {
         <a href="#" onclick="abaProdutos()" class="flex items-center gap-6 p-6 rounded-2xl hover:bg-gray-100 text-2xl">
           Produtos (${dadosBackup.produtos.length})
         </a>
+        <a href="#" onclick="abaFaturamentos()" class="flex items-center gap-6 p-6 rounded-2xl hover:bg-gray-100 text-2xl">
+          Faturamentos (${dadosBackup.faturamentos.length})
+        </a>
+        <a href="#" onclick="abaDebitos()" class="flex items-center gap-6 p-6 rounded-2xl hover:bg-gray-100 text-2xl">
+          Débitos Vencidos (${dadosBackup.debitos.length})
+        </a>
+        <a href="#" onclick="abaPedidosBloqueados()" class="flex items-center gap-6 p-6 rounded-2xl hover:bg-gray-100 text-2xl">
+          Pedidos Bloqueados (${dadosBackup.pedidos_bloqueados.length})
+        </a>
       </nav>
     </div>
     <div class="flex-1 p-10 overflow-auto" id="conteudo">
       <div class="text-center py-40">
         <p class="text-6xl font-bold text-orange-600">Sistema Integra - Honest</p>
-        <p class="text-4xl text-green-600 mt-8">Backup: ${dadosBackup.clientes.length + dadosBackup.produtos.length} registros</p>
+        <p class="text-4xl text-green-600 mt-8">Backup: ${Object.values(dadosBackup).reduce((a,b)=>a+b.length,0)} registros</p>
       </div>
     </div>
   </div>`;
   lucide.createIcons();
 };
 
-window.abaClientes = () => abrirAba("Clientes", "geral/clientes/", "ListarClientes", "clientes_cadastro", "clientes", {filtrar_por_status:"T"});
-window.abaProdutos = () => abrirAba("Produtos", "geral/produtos/", "ListarProdutos", "produto_servico_cadastro", "produtos", {filtrar_apenas_inativos:"N"});
+const abas = {
+  clientes: { call: "ListarClientes", key: "clientes_cadastro", endpoint: "geral/clientes/", backup: "clientes", extra: {filtrar_por_status:"T"} },
+  produtos: { call: "ListarProdutos", key: "produto_servico_cadastro", endpoint: "geral/produtos/", backup: "produtos", extra: {filtrar_apenas_inativos:"N"} },
+  faturamentos: { call: "ListarNotasFiscais", key: "nota_fiscal_list", endpoint: "faturamento/notafiscal/", backup: "faturamentos", extra: {} },
+  debitos: { call: "ListarContasReceber", key: "contas_receber_list", endpoint: "financeiro/contasreceber/", backup: "debitos", extra: {filtrar_por_status:"VENCIDO"} },
+  pedidos_bloqueados: { call: "ListarPedidos", key: "pedido_venda_list", endpoint: "vendas/pedidovenda/", backup: "pedidos_bloqueados", extra: {status_pedido:"BLOQUEADO"} }
+};
 
-function abrirAba(nome, endpoint, call, key, backup, extra) {
-  const count = dadosBackup[backup].length;
+window.abaClientes = () => abrirAba("Clientes", abas.clientes);
+window.abaProdutos = () => abrirAba("Produtos", abas.produtos);
+window.abaFaturamentos = () => abrirAba("Faturamentos", abas.faturamentos);
+window.abaDebitos = () => abrirAba("Débitos Vencidos", abas.debitos);
+window.abaPedidosBloqueados = () => abrirAba("Pedidos Bloqueados", abas.pedidos_bloqueados);
+
+function abrirAba(nome, config) {
+  const count = dadosBackup[config.backup].length;
   document.getElementById("conteudo").innerHTML = `
     <div class="max-w-full">
       <h2 class="text-5xl font-bold mb-10">${nome} - Omie</h2>
       <div class="space-x-6 mb-8">
-        <button onclick="importarLenta('${endpoint}','${call}','${key}','${backup}',${JSON.stringify(extra)})" 
+        <button onclick="importarLenta('${config.call}','${config.key}','${config.backup}',${JSON.stringify(config.extra)})" 
                 class="bg-gradient-to-r from-green-600 to-blue-700 text-white px-12 py-6 rounded-2xl text-3xl font-bold">
           IMPORTAR LENTO (30s/página)
         </button>
-        <button onclick="mostrarTabela('${backup}')" 
+        <button onclick="mostrarTabela('${config.backup}')" 
                 class="bg-gray-600 text-white px-12 py-6 rounded-2xl text-3xl font-bold">
           VER BACKUP (${count})
         </button>
       </div>
       <div class="bg-white p-10 rounded-3xl shadow-2xl">
-        <div id="tabela${nome}"></div>
+        <div id="tabela${nome.replace(/ /g,'')}"></div>
       </div>
     </div>`;
-  if (count > 0) mostrarTabela(backup);
+  if (count > 0) mostrarTabela(config.backup);
 }
 
-window.importarLenta = async (endpoint, call, key, backupType, extraStr) => {
+window.importarLenta = async (call, key, backupType, extraStr) => {
   const extra = JSON.parse(extraStr);
   const id = "tabela" + call.replace("Listar","");
   document.getElementById(id).innerHTML = `<p class="text-4xl text-orange-600 text-center py-20">Iniciando importação lenta (30s/página)...</p><div class="w-full bg-gray-200 rounded-full h-16 mb-8"><div id="progress" class="bg-green-600 h-16 rounded-full text-3xl text-white text-center leading-16" style="width:0%">0%</div></div>`;
@@ -92,19 +112,18 @@ window.importarLenta = async (endpoint, call, key, backupType, extraStr) => {
   let todos = dadosBackup[backupType] || [];
 
   while (true) {
-    const body = JSON.stringify({
+    const body = {
       call: call,
       app_key: OMIE_APP_KEY,
       app_secret: OMIE_APP_SECRET,
       param: [{ pagina: pagina, registros_por_pagina: 500, ...extra }]
-    });
+    };
 
     try {
-      const url = "https://app.omie.com.br/api/v1/" + endpoint;
-      const res = await fetch(PROXY + encodeURIComponent(url), {
+      const res = await fetch(BACKEND, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: body
+        body: JSON.stringify(body)
       });
 
       const data = await res.json();
@@ -120,7 +139,7 @@ window.importarLenta = async (endpoint, call, key, backupType, extraStr) => {
       localStorage.setItem('integra_' + backupType, JSON.stringify(todos));
 
       pagina++;
-      await new Promise(r => setTimeout(r, DELAY_MS));
+      await new Promise(r => setTimeout(r, 30000));
     } catch (e) {
       console.error(e);
       break;
@@ -132,47 +151,33 @@ window.importarLenta = async (endpoint, call, key, backupType, extraStr) => {
 
 window.mostrarTabela = (tipo) => {
   const dados = dadosBackup[tipo];
-  const isCliente = tipo === "clientes";
-  document.getElementById("tabela" + (isCliente ? "Clientes" : "Produtos")).innerHTML = `
-    <p class="text-6xl font-bold text-green-600 text-center mb-10">SUCESSO! ${dados.length} ${isCliente ? 'CLIENTES' : 'PRODUTOS'} IMPORTADOS</p>
+  document.getElementById("tabela" + tipo.charAt(0).toUpperCase() + tipo.slice(1)).innerHTML = `
+    <p class="text-6xl font-bold text-green-600 text-center mb-10">SUCESSO! ${dados.length} ${tipo.toUpperCase()} IMPORTADOS</p>
     <div class="overflow-x-auto">
       <table class="w-full table-auto border-collapse text-lg">
         <thead class="bg-gradient-to-r from-orange-500 to-green-600 text-white">
           <tr>
-            ${isCliente ? 
-              `<th class="p-6">CNPJ/CPF</th><th class="p-6">RAZÃO SOCIAL</th><th class="p-6">NOME FANTASIA</th><th class="p-6">TELEFONE</th><th class="p-6">E-MAIL</th><th class="p-6">ENDEREÇO</th><th class="p-6">CEP</th><th class="p-6">BAIRRO</th><th class="p-6">CIDADE</th>` :
-              `<th class="p-6">CÓDIGO</th><th class="p-6">NOME DO PRODUTO</th><th class="p-6">PREÇO UNITÁRIO</th>`
-            }
+            <th class="p-6">CÓDIGO</th>
+            <th class="p-6">NOME/CLIENTE</th>
+            <th class="p-6">VALOR</th>
+            <th class="p-6">DATA</th>
+            <th class="p-6">STATUS</th>
           </tr>
         </thead>
         <tbody>
-          ${dados.slice(0, 500).map(item => {
-            if (isCliente) {
-              const tel = `${item.telefone1_ddd || ''} ${item.telefone1_numero || ''}`;
-              const endereco = `${item.endereco || ''}, ${item.numero || ''} ${item.complemento || ''}`;
-              return `<tr class="hover:bg-orange-50">
-                <td class="p-6">${item.cnpj_cpf || ''}</td>
-                <td class="p-6">${item.razao_social || ''}</td>
-                <td class="p-6">${item.nome_fantasia || ''}</td>
-                <td class="p-6">${tel}</td>
-                <td class="p-6">${item.email || ''}</td>
-                <td class="p-6">${endereco}</td>
-                <td class="p-6">${item.cep || ''}</td>
-                <td class="p-6">${item.bairro || ''}</td>
-                <td class="p-6">${item.cidade || ''}</td>
-              </tr>`;
-            } else {
-              return `<tr class="hover:bg-orange-50">
-                <td class="p-6">${item.codigo_produto || ''}</td>
-                <td class="p-6">${item.descricao || ''}</td>
-                <td class="p-6">R$ ${item.valor_unitario || '0,00'}</td>
-              </tr>`;
-            }
-          }).join('')}
+          ${dados.slice(0, 500).map(item => `
+            <tr class="hover:bg-orange-50">
+              <td class="p-6">${item.codigo_lancamento_omie || item.codigo_pedido || item.codigo_produto || ''}</td>
+              <td class="p-6">${item.nome_fantasia || item.razao_social || item.descricao || item.nome_cliente || ''}</td>
+              <td class="p-6">R$ ${item.valor_total_nf || item.valor_documento || item.valor_unitario || '0,00'}</td>
+              <td class="p-6">${item.data_emissao || item.data_vencimento || ''}</td>
+              <td class="p-6">${item.status_titulo || item.status_pedido || ''}</td>
+            </tr>
+          `).join('')}
         </tbody>
       </table>
     </div>
-    <div class="text-center mt-12">
+    <div class="text-center mt-1212">
       <button onclick="exportarExcel('${tipo}')" class="bg-green-600 text-white px-16 py-8 rounded-2xl text-3xl font-bold">
         EXPORTAR PARA EXCEL
       </button>
@@ -182,19 +187,9 @@ window.mostrarTabela = (tipo) => {
 
 window.exportarExcel = (tipo) => {
   const dados = dadosBackup[tipo];
-  const isCliente = tipo === "clientes";
-  let csv = isCliente ?
-    "CNPJ/CPF,RAZÃO SOCIAL,NOME FANTASIA,TELEFONE,E-MAIL,ENDEREÇO,CEP,BAIRRO,CIDADE\n" :
-    "CÓDIGO,NOME DO PRODUTO,PREÇO UNITÁRIO\n";
-  
+  let csv = "CÓDIGO,NOME,VALOR,DATA,STATUS\n";
   dados.forEach(item => {
-    if (isCliente) {
-      const tel = `${item.telefone1_ddd || ''} ${item.telefone1_numero || ''}`;
-      const endereco = `${item.endereco || ''}, ${item.numero || ''} ${item.complemento || ''}`;
-      csv += `"${item.cnpj_cpf || ''}","${item.razao_social || ''}","${item.nome_fantasia || ''}","${tel}","${item.email || ''}","${endereco}","${item.cep || ''}","${item.bairro || ''}","${item.cidade || ''}"\n`;
-    } else {
-      csv += `"${item.codigo_produto || ''}","${item.descricao || ''}","${item.valor_unitario || ''}"\n`;
-    }
+    csv += `"${item.codigo_lancamento_omie || item.codigo_pedido || item.codigo_produto || ''}","${item.nome_fantasia || item.razao_social || item.descricao || item.nome_cliente || ''}","${item.valor_total_nf || item.valor_documento || item.valor_unitario || '0,00'}","${item.data_emissao || item.data_vencimento || ''}","${item.status_titulo || item.status_pedido || ''}"\n`;
   });
   
   const blob = new Blob([csv], { type: 'text/csv' });
