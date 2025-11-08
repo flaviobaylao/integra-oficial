@@ -10,7 +10,7 @@
 <body class="bg-gray-100">
 <div id="app"></div>
 <script>
-// V25.0.0 - TODAS AS ABAS + BACKEND REAL NO VERCEL (100% FUNCIONANDO) 08/11/2025 - 17:30
+// V26.0.0 - TODAS AS ABAS + BACKEND REAL NO VERCEL (100% FUNCIONANDO) 08/11/2025 - 17:45
 const BACKEND = "https://integra-honest-backend.vercel.app/api"; // BACKEND REAL NO VERCEL
 
 let dadosBackup = {
@@ -114,8 +114,8 @@ window.importarLenta = async (call, key, backupType, extraStr) => {
   while (true) {
     const body = {
       call: call,
-      app_key: OMIE_APP_KEY,
-      app_secret: OMIE_APP_SECRET,
+      app_key: "889424443908",
+      app_secret: "386a543c54970ecbf16f4153417040e7",
       param: [{ pagina: pagina, registros_por_pagina: 500, ...extra }]
     };
 
@@ -177,7 +177,7 @@ window.mostrarTabela = (tipo) => {
         </tbody>
       </table>
     </div>
-    <div class="text-center mt-1212">
+    <div class="text-center mt-12">
       <button onclick="exportarExcel('${tipo}')" class="bg-green-600 text-white px-16 py-8 rounded-2xl text-3xl font-bold">
         EXPORTAR PARA EXCEL
       </button>
